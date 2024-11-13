@@ -208,7 +208,7 @@ def classify(sentence):
 
 def start_server():
     # Start worker processes
-    num_workers = 2
+    num_workers = 1
     workers = []
     
     for i in range(num_workers):
