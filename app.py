@@ -206,6 +206,56 @@ def classify(sentence):
         logger.error(f"Error processing request: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+
+import os, time
+
+from openai import AzureOpenAI
+
+client = AzureOpenAI(
+    # https://learn.microsoft.com/azure/ai-services/openai/reference#rest-api-versioning
+    api_version= os.environ["OPENAI_API_VERSION"],
+    # https://learn.microsoft.com/azure/cognitive-services/openai/how-to/create-resource?pivots=web-portal#create-a-resource
+    azure_endpoint=os.environ["OPENAI_API_BASE"],
+    azure_deployment=os.environ["OPENAI_DEPLOYMENT_NAME"],
+)
+
+def embed(text):
+    # time.sleep(0.01)
+    print(text)
+    return client.embeddings.create(input = [text], model=os.environ["OPENAI_DEPLOYMENT_NAME"]).data[0].embedding
+
+
+
+import torch
+import torch.nn as nn
+
+class SimpleNN(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(SimpleNN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, 256)  # First layer with 128 neurons
+        self.fc2 = nn.Linear(256, output_dim)  # Output layer
+        
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))  # Activation function for hidden layer
+        x = self.fc2(x)               # Output layer (logits)
+        return x
+
+model  = torch.load('./multi_small/lite_cls.bin')
+@app.route('/embed/classify/<string:sentence>', methods=['GET'])
+def classify(sentence):
+    start_time = time.time()
+    props = model(torch.tensor(embed(f'{sentence}'), dtype=torch.float32))
+    result_class = torch.argmax(props).item()
+    class_mapping = {0: 'none', 1: 'product', 2: 'series'}
+    predicted_label = class_mapping.get(int(result_class))
+    return jsonify({
+                    'class': predicted_label,
+                    'sentence': sentence,
+                    'confidence': torch.max(props),
+                    'processing_time': round(time.time() - start_time, 4),
+                })
+
+
 def start_server():
     # Start worker processes
     num_workers = 1
