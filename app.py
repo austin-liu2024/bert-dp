@@ -17,20 +17,20 @@ logger = logging.getLogger(__name__)
 
 import torch
 import torch.nn as nn
-model  = torch.load('./multi_small/lite_cls.safetensors')#, weights_only=True
+model  = torch.load('./multi_small/lite_cls.pt', weights_only=True)#
 model.eval()
 # from simple_cls import SimpleNN
 # torch.serialization.add_safe_globals([SimpleNN])
-# class SimpleNN(nn.Module):
-#     def __init__(self, input_dim, output_dim):
-#         super(SimpleNN, self).__init__()
-#         self.fc1 = nn.Linear(input_dim, 256)  # First layer with 128 neurons
-#         self.fc2 = nn.Linear(256, output_dim)  # Output layer
+class SimpleNN(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(SimpleNN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, 256)  # First layer with 128 neurons
+        self.fc2 = nn.Linear(256, output_dim)  # Output layer
         
-#     def forward(self, x):
-#         x = torch.relu(self.fc1(x))  # Activation function for hidden layer
-#         x = self.fc2(x)               # Output layer (logits)
-#         return x
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))  # Activation function for hidden layer
+        x = self.fc2(x)               # Output layer (logits)
+        return x
 
 
 class ModelWorker:
