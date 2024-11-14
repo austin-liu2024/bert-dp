@@ -17,24 +17,50 @@ logger = logging.getLogger(__name__)
 
 import torch
 import torch.nn as nn
+from safetensors.torch import save_file, load_file
 
-# Define the model class first
+# Assuming you have your SimpleNN model
+def save_model_to_safetensors(model, path):
+    # Convert model state dict to CPU if it's on GPU
+    state_dict = model.state_dict()
+    state_dict = {k: v.cpu() for k, v in state_dict.items()}
+    
+    # Save using safetensors
+    save_file(state_dict, path)
+
+# To load the model later
+def load_model_from_safetensors(model_class, path, input_dim=1536, output_dim=3):
+    # Create a new instance of your model
+    model = model_class(input_dim, output_dim)
+    
+    # Load the state dict
+    state_dict = load_file(path)
+    
+    # Load weights into model
+    model.load_state_dict(state_dict)
+    return model
+
+
+# Define a simple feedforward neural network
 class SimpleNN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(SimpleNN, self).__init__()
         self.fc1 = nn.Linear(input_dim, 256)  # First layer with 128 neurons
-        self.fc2 = nn.Linear(256, output_dim)  # Output layer
+        self.fc2 = nn.Linear(256, 1024)
+        self.fc3 = nn.Linear(1024, 256)
+        self.fc4 = nn.Linear(256, output_dim)  # Output layer
         
     def forward(self, x):
         x = torch.relu(self.fc1(x))  # Activation function for hidden layer
-        x = self.fc2(x)               # Output layer (logits)
+        x = torch.relu(self.fc2(x))  
+        x = torch.relu(self.fc3(x))
+        x = self.fc4(x)               # Output layer (logits)
         return x
-
 # Add to safe globals before loading
 torch.serialization.add_safe_globals([SimpleNN])
 
 # Then load the model
-model = torch.load('./multi_small/lite_cls.pt', weights_only=True)
+model = load_model_from_safetensors(SimpleNN, './multi_small/lite_cls.safetensors')
 model.eval()
     
 
