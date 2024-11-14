@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 import torch
 import torch.nn as nn
 from safetensors.torch import save_file, load_file
+from safetensors import safe_open
 
 # Assuming you have your SimpleNN model
 def save_model_to_safetensors(model, path):
@@ -142,10 +143,16 @@ class SimpleNN(nn.Module):
         
         # Load weights
         weights_path = os.path.join(pretrained_model_path, "model.safetensors")
-        state_dict = load_file(weights_path)
-        model.load_state_dict(state_dict)
+        # state_dict = load_file(weights_path)
+        # model.load_state_dict(state_dict)
+
+        tensors = {}
+        with safe_open(os.path.join(pretrained_model_path, "model.safetensors"), framework="pt", device=0) as f:
+            for k in f.keys():
+                tensors[k] = f.get_tensor(k)
         
         # model.to(device)
+        model.load_state_dict(tensors)
         model.eval()
         
         # logger.info(f"Model loaded from {pretrained_model_path} to {device}")
