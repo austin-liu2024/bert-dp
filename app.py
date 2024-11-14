@@ -17,9 +17,8 @@ logger = logging.getLogger(__name__)
 
 import torch
 import torch.nn as nn
-model  = torch.load('./multi_small/lite_cls.pt', weights_only=True)#
-model.eval()
-# from simple_cls import SimpleNN
+
+# Define the model class first
 class SimpleNN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(SimpleNN, self).__init__()
@@ -30,7 +29,13 @@ class SimpleNN(nn.Module):
         x = torch.relu(self.fc1(x))  # Activation function for hidden layer
         x = self.fc2(x)               # Output layer (logits)
         return x
+
+# Add to safe globals before loading
 torch.serialization.add_safe_globals([SimpleNN])
+
+# Then load the model
+model = torch.load('./multi_small/lite_cls.pt', weights_only=True)
+model.eval()
     
 
 
