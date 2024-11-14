@@ -15,6 +15,24 @@ import psutil
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+import torch
+import torch.nn as nn
+model  = torch.load('./multi_small/lite_cls.safetensors')#, weights_only=True
+model.eval()
+# from simple_cls import SimpleNN
+# torch.serialization.add_safe_globals([SimpleNN])
+# class SimpleNN(nn.Module):
+#     def __init__(self, input_dim, output_dim):
+#         super(SimpleNN, self).__init__()
+#         self.fc1 = nn.Linear(input_dim, 256)  # First layer with 128 neurons
+#         self.fc2 = nn.Linear(256, output_dim)  # Output layer
+        
+#     def forward(self, x):
+#         x = torch.relu(self.fc1(x))  # Activation function for hidden layer
+#         x = self.fc2(x)               # Output layer (logits)
+#         return x
+
+
 class ModelWorker:
     def __init__(self, model_path, request_queue, response_queue, worker_id):
         self.model_path = model_path
@@ -147,6 +165,8 @@ def start_worker(model_path, request_queue, response_queue, worker_id):
 # Flask application
 app = Flask(__name__)
 
+
+
 # Shared queues and worker counter
 request_queue = Queue()
 response_queue = Queue()
@@ -160,7 +180,7 @@ def get_next_worker():
         return worker_counter.value
 
 @app.route('/bert/classify/<string:sentence>', methods=['GET'])
-def classify(sentence):
+def bert_classify(sentence):
     try:
         start_time = time.time()
         request_id = int(time.time() * 1000000)  # Microsecond timestamp as ID
@@ -226,32 +246,20 @@ def embed(text):
 
 
 
-import torch
-import torch.nn as nn
 
-class SimpleNN(nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super(SimpleNN, self).__init__()
-        self.fc1 = nn.Linear(input_dim, 256)  # First layer with 128 neurons
-        self.fc2 = nn.Linear(256, output_dim)  # Output layer
-        
-    def forward(self, x):
-        x = torch.relu(self.fc1(x))  # Activation function for hidden layer
-        x = self.fc2(x)               # Output layer (logits)
-        return x
-
-model  = torch.load('./multi_small/lite_cls.bin')
 @app.route('/embed/classify/<string:sentence>', methods=['GET'])
-def classify(sentence):
+def embed_classify(sentence):
     start_time = time.time()
-    props = model(torch.tensor(embed(f'{sentence}'), dtype=torch.float32))
+    m = nn.Softmax()
+    props = m(model(torch.tensor(embed(f'{sentence}'), dtype=torch.float32)))
+    print(props)
     result_class = torch.argmax(props).item()
     class_mapping = {0: 'none', 1: 'product', 2: 'series'}
     predicted_label = class_mapping.get(int(result_class))
     return jsonify({
                     'class': predicted_label,
                     'sentence': sentence,
-                    'confidence': torch.max(props),
+                    'confidence': torch.max(props).item(),
                     'processing_time': round(time.time() - start_time, 4),
                 })
 
