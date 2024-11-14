@@ -10,7 +10,7 @@ import ctypes
 import numpy as np
 import psutil
 # from waitress import serve
-
+import json
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,28 +41,154 @@ def load_model_from_safetensors(model_class, path, input_dim=1536, output_dim=3)
     return model
 
 
-# Define a simple feedforward neural network
+# # Define a simple feedforward neural network
+# class SimpleNN(nn.Module):
+#     def __init__(self, input_dim, output_dim):
+#         super(SimpleNN, self).__init__()
+#         self.fc1 = nn.Linear(input_dim, 256)  # First layer with 128 neurons
+#         self.fc2 = nn.Linear(256, 1024)
+#         self.fc3 = nn.Linear(1024, 256)
+#         self.fc4 = nn.Linear(256, output_dim)  # Output layer
+        
+#     def forward(self, x):
+#         x = torch.relu(self.fc1(x))  # Activation function for hidden layer
+#         x = torch.relu(self.fc2(x))  
+#         x = torch.relu(self.fc3(x))
+#         x = self.fc4(x)               # Output layer (logits)
+#         return x
+# # Add to safe globals before loading
+# torch.serialization.add_safe_globals([SimpleNN])
+
+# # Then load the model
+# model = load_model_from_safetensors(SimpleNN, './multi_small/lite_cls.safetensors')
+# model.eval()
+    
 class SimpleNN(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(SimpleNN, self).__init__()
-        self.fc1 = nn.Linear(input_dim, 256)  # First layer with 128 neurons
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.fc1 = nn.Linear(input_dim, 256)
         self.fc2 = nn.Linear(256, 1024)
         self.fc3 = nn.Linear(1024, 256)
-        self.fc4 = nn.Linear(256, output_dim)  # Output layer
+        self.fc4 = nn.Linear(256, output_dim)
         
     def forward(self, x):
-        x = torch.relu(self.fc1(x))  # Activation function for hidden layer
-        x = torch.relu(self.fc2(x))  
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
         x = torch.relu(self.fc3(x))
-        x = self.fc4(x)               # Output layer (logits)
+        x = self.fc4(x)
         return x
-# Add to safe globals before loading
-torch.serialization.add_safe_globals([SimpleNN])
 
-# Then load the model
-model = load_model_from_safetensors(SimpleNN, './multi_small/lite_cls.safetensors')
-model.eval()
+    def save_pretrained(self, save_directory: str, **kwargs):
+        """Save model weights and config to directory"""
+        os.makedirs(save_directory, exist_ok=True)
+        
+        # Save config
+        config = {
+            "model_type": self.__class__.__name__,
+            "input_dim": self.input_dim,
+            "output_dim": self.output_dim,
+            **kwargs  # Additional config parameters
+        }
+        
+        config_path = os.path.join(save_directory, "config.json")
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+            
+        # Save weights
+        state_dict = self.state_dict()
+        state_dict = {k: v.cpu() for k, v in state_dict.items()}
+        weights_path = os.path.join(save_directory, "model.safetensors")
+        save_file(state_dict, weights_path)
+        
+        logger.info(f"Model saved to {save_directory}")
+        return config
     
+    @classmethod
+    def from_pretrained(
+        cls,
+        pretrained_model_path: str,
+        # device: Optional[str] = None,
+        **kwargs
+    ) -> "SimpleNN":
+        """
+        Load pretrained model from directory
+        
+        Args:
+            pretrained_model_path: Directory containing model.safetensors and config.json
+            device: Device to load model to ('cuda', 'cpu', etc)
+            **kwargs: Override config parameters
+            
+        Returns:
+            Loaded model instance
+        """
+        # if device is None:
+        #     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            
+        # Load config
+        config_path = os.path.join(pretrained_model_path, "config.json")
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+            
+        # Override config with kwargs
+        config.update(kwargs)
+        
+        # Initialize model
+        model = cls(
+            input_dim=config['input_dim'],
+            output_dim=config['output_dim']
+        )
+        
+        # Load weights
+        weights_path = os.path.join(pretrained_model_path, "model.safetensors")
+        state_dict = load_file(weights_path)
+        model.load_state_dict(state_dict)
+        
+        # model.to(device)
+        model.eval()
+        
+        # logger.info(f"Model loaded from {pretrained_model_path} to {device}")
+        return model
+
+# Example usage
+def train_and_save_model():
+    # Create and train model
+    model = SimpleNN(input_dim=1536, output_dim=3)
+    
+    # Save pretrained model
+    save_dir = "./multi_small"
+    model.save_pretrained(
+        save_dir,
+        training_params={
+            "epochs": 10,
+            "batch_size": 32,
+            "learning_rate": 0.001
+        },
+        version="1.0.0"
+    )
+    return save_dir
+
+def load_and_use_model():
+    # Load pretrained model
+    model = SimpleNN.from_pretrained(
+        "./multi_small",
+        # device="cuda",  # optional
+        # Override config parameters if needed
+        input_dim=1536,
+        output_dim=3
+    )
+    
+    # Use model
+    with torch.no_grad():
+        dummy_input = torch.randn(1, 1536)#.to(model.device)
+        output = model(dummy_input)
+        print(f"Output shape: {output.shape}")
+    
+    return model
+
+model = load_and_use_model()
+model.eval()
 
 
 class ModelWorker:

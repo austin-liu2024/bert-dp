@@ -1,0 +1,45 @@
+{
+    "model_type": "SimpleNN",
+    "version": "1.0.0",
+    "architecture": {
+      "input_dim": 1536,
+      "hidden_layers": [
+        {
+          "name": "fc1",
+          "in_features": 1536,
+          "out_features": 256,
+          "activation": "ReLU"
+        },
+        {
+          "name": "fc2",
+          "in_features": 256,
+          "out_features": 1024,
+          "activation": "ReLU"
+        },
+        {
+          "name": "fc3",
+          "in_features": 1024,
+          "out_features": 256,
+          "activation": "ReLU"
+        },
+        {
+          "name": "fc4",
+          "in_features": 256,
+          "out_features": 3,
+          "activation": null
+        }
+      ],
+      "output_dim": 3
+    },
+    "metadata": {
+      "description": "Simple feedforward neural network for classification",
+      "activations": "ReLU for hidden layers, None for output layer",
+      "total_parameters": 919811
+    },
+    "training_config": {
+      "optimizer": null,
+      "loss_function": null,
+      "learning_rate": null,
+      "batch_size": null
+    }
+  }
